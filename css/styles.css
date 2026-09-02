@@ -32,7 +32,8 @@ svg { width: 1.25rem; height: 1.25rem; fill: none; stroke: currentColor; stroke-
 
 .access-gate { display: grid; min-height: 100vh; padding: 1rem; place-items: center; }
 .gate-card { width: min(100%, 330px); padding: 1.6rem; text-align: center; background: var(--paper); border: 2px solid var(--border); border-radius: 28px; box-shadow: 8px 10px 0 rgb(222 214 238 / 70%); }
-.lock-mark { display: grid; width: 2.7rem; height: 2.7rem; margin: 0 auto .7rem; place-items: center; color: var(--pink-dark); font-size: 1.1rem; background: #fde3e7; border-radius: 50%; transform: rotate(-5deg); }
+.lock-mark { display: grid; width: 2.9rem; height: 2.9rem; margin: 0 auto .7rem; place-items: center; color: #635676; background: var(--lavender); border-radius: 14px; transform: rotate(-3deg); }
+.lock-mark svg { width: 1.55rem; height: 1.55rem; }
 .gate-card h1 { margin: 0 0 1rem; font-size: 1.25rem; letter-spacing: -.02em; }
 .code-input { width: 100%; padding: .8rem 1rem; color: var(--ink); font-size: 1.4rem; letter-spacing: .3em; text-align: center; background: var(--cream); border: 2px solid var(--border); border-radius: 14px; }
 .code-input:focus { border-color: var(--pink-dark); outline: 3px solid rgb(245 200 207 / 55%); }
