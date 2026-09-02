@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A private interactive bucket list.">
+    <title>Our Bucket List</title>
+    <link rel="stylesheet" href="./css/styles.css">
+  </head>
+  <body>
+    <main>
+      <p id="session-loading" class="session-loading" role="status">Checking access…</p>
+
+      <section id="access-gate" class="access-gate" aria-labelledby="gate-heading" hidden>
+        <form id="login-form" class="gate-card">
+          <span class="lock-mark" aria-hidden="true">♥</span>
+          <h1 id="gate-heading">Enter access code</h1>
+          <label class="visually-hidden" for="login-password">Numeric access code</label>
+          <input
+            id="login-password"
+            class="code-input"
+            name="password"
+            type="password"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            maxlength="64"
+            autocomplete="current-password"
+            aria-describedby="login-error"
+            required
+          >
+
+          <div class="numpad" aria-label="Numeric keypad">
+            <button type="button" data-digit="1">1</button>
+            <button type="button" data-digit="2">2</button>
+            <button type="button" data-digit="3">3</button>
+            <button type="button" data-digit="4">4</button>
+            <button type="button" data-digit="5">5</button>
+            <button type="button" data-digit="6">6</button>
+            <button type="button" data-digit="7">7</button>
+            <button type="button" data-digit="8">8</button>
+            <button type="button" data-digit="9">9</button>
+            <button type="button" class="key-action" data-action="clear" aria-label="Clear access code">C</button>
+            <button type="button" data-digit="0">0</button>
+            <button type="button" class="key-action" data-action="backspace" aria-label="Delete last digit">⌫</button>
+          </div>
+
+          <button id="login-button" class="unlock-button" type="submit" aria-label="Unlock" title="Unlock">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </button>
+          <p id="login-error" class="gate-error" role="alert" hidden></p>
+        </form>
+      </section>
+
+      <section id="bucket-app" class="app-shell" aria-labelledby="page-title" hidden>
+        <div class="bucket-list">
+          <header class="page-header">
+            <h1 id="page-title">Our Bucket List</h1>
+            <div class="header-actions">
+              <button id="toggle-add-form" class="icon-button icon-button--add" type="button" aria-label="Add item" title="Add item" aria-expanded="false" aria-controls="add-item-form">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+              </button>
+              <button id="manage-categories" class="icon-button icon-button--quiet" type="button" aria-label="Manage tags" title="Manage tags" aria-expanded="false" aria-controls="category-panel">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13 13 20 4 11V4h7Z"/><circle cx="8.5" cy="8.5" r="1"/></svg>
+              </button>
+              <button id="logout-button" class="icon-button icon-button--quiet" type="button" aria-label="Lock list" title="Lock list">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+              </button>
+            </div>
+          </header>
+          <p id="app-error" class="app-error" role="alert" hidden></p>
+          <section id="tools-section" class="add-section" aria-label="List tools" hidden>
+            <form id="add-item-form" class="item-form" hidden>
+              <div class="form-field form-field--wide">
+                <label for="add-title">Title <span aria-hidden="true">*</span></label>
+                <input id="add-title" name="title" type="text" maxlength="200" required>
+              </div>
+              <div class="form-field form-field--wide">
+                <label for="add-description">Description</label>
+                <textarea id="add-description" name="description" rows="3" maxlength="1000"></textarea>
+              </div>
+              <div class="form-field">
+                <label for="add-category">Category</label>
+                <select id="add-category" name="categoryId">
+                  <option value="">No category</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label for="add-location">Location</label>
+                <select id="add-location" name="locationId"><option value="">No location</option></select>
+              </div>
+              <div class="form-field">
+                <label for="add-weather">Weather</label>
+                <select id="add-weather" name="weatherId"><option value="">No weather</option></select>
+              </div>
+              <div class="form-actions">
+                <button class="icon-button icon-button--confirm" type="submit" aria-label="Save item" title="Save item">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>
+                </button>
+                <button id="cancel-add" class="icon-button icon-button--quiet" type="button" aria-label="Cancel" title="Cancel">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+                </button>
+              </div>
+            </form>
+            <div id="category-panel" class="category-panel" hidden>
+              <h3>Categories</h3>
+              <form id="add-category-form" class="category-add-form">
+                <label class="visually-hidden" for="new-category-name">Category name</label>
+                <input id="new-category-name" name="name" type="text" maxlength="100" placeholder="Category name" required>
+                <button class="icon-button icon-button--confirm icon-button--small" type="submit" aria-label="Save category" title="Save category">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>
+                </button>
+              </form>
+              <ul id="category-list" class="category-list" aria-label="Categories"></ul>
+              <h3>Locations</h3>
+              <form id="add-location-form" class="category-add-form">
+                <label class="visually-hidden" for="new-location-name">Location name</label>
+                <input id="new-location-name" name="name" type="text" maxlength="100" placeholder="Location name" required>
+                <button class="icon-button icon-button--confirm icon-button--small" type="submit" aria-label="Save location" title="Save location"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></button>
+              </form>
+              <ul id="location-list" class="category-list" aria-label="Locations"></ul>
+              <h3>Weather</h3>
+              <form id="add-weather-form" class="category-add-form">
+                <label class="visually-hidden" for="new-weather-name">Weather name</label>
+                <input id="new-weather-name" name="name" type="text" maxlength="100" placeholder="Weather name" required>
+                <button class="icon-button icon-button--confirm icon-button--small" type="submit" aria-label="Save weather" title="Save weather"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></button>
+              </form>
+              <ul id="weather-list" class="category-list" aria-label="Weather tags"></ul>
+            </div>
+          </section>
+          <section class="list-section" aria-labelledby="list-heading">
+            <div class="search-row">
+              <div class="search-field">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></svg>
+                <label class="visually-hidden" for="item-search">Search items and tags</label>
+                <input id="item-search" type="search" placeholder="Search items or tags">
+              </div>
+              <button id="toggle-filters" class="icon-button icon-button--quiet" type="button" aria-label="Filter list" title="Filter list" aria-expanded="false" aria-controls="filter-panel">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+              </button>
+            </div>
+            <div id="filter-panel" class="filter-panel" hidden>
+              <div class="form-field">
+                <label for="status-filter">Status</label>
+                <select id="status-filter">
+                  <option value="all">All</option>
+                  <option value="incomplete">Not completed</option>
+                  <option value="complete">Completed</option>
+                </select>
+              </div>
+              <div class="form-field"><label for="location-filter">Location</label><select id="location-filter"><option value="">All locations</option></select></div>
+              <div class="form-field"><label for="weather-filter">Weather</label><select id="weather-filter"><option value="">All weather</option></select></div>
+              <div class="form-field">
+                <label for="category-filter">Category</label>
+                <select id="category-filter">
+                  <option value="">All categories</option>
+                </select>
+              </div>
+            </div>
+            <p id="list-message" class="list-message" role="status" aria-live="polite">Loading our bucket list…</p>
+            <ul id="bucket-list-items" class="bucket-list-items" aria-label="Bucket-list items"></ul>
+          </section>
+        </div>
+      </section>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>
