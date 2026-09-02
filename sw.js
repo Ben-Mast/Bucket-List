@@ -1,4 +1,4 @@
-const CACHE_NAME = "bucket-list-shell-v1";
+const CACHE_NAME = "bucket-list-shell-v6";
 const APP_SHELL = [
   "./",
   "./index.html",

@@ -69,11 +69,18 @@
               <button id="manage-categories" class="icon-button icon-button--quiet" type="button" aria-label="Manage tags" title="Manage tags" aria-expanded="false" aria-controls="category-panel">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13 13 20 4 11V4h7Z"/><circle cx="8.5" cy="8.5" r="1"/></svg>
               </button>
+              <button id="pick-random" class="icon-button icon-button--quiet" type="button" aria-label="Pick a random item from current filters" title="Pick random item">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r=".75" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r=".75" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r=".75" fill="currentColor" stroke="none"/><circle cx="9" cy="15" r=".75" fill="currentColor" stroke="none"/><circle cx="15" cy="15" r=".75" fill="currentColor" stroke="none"/></svg>
+              </button>
+              <button id="refresh-data" class="icon-button icon-button--quiet" type="button" aria-label="Refresh bucket list" title="Refresh">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5"/><path d="M18.5 16a8 8 0 1 1 .8-7.4L20 12"/></svg>
+              </button>
               <button id="logout-button" class="icon-button icon-button--quiet" type="button" aria-label="Lock list" title="Lock list">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
               </button>
             </div>
           </header>
+          <p id="random-result" class="visually-hidden" role="status" aria-live="polite"></p>
           <p id="app-error" class="app-error" role="alert" hidden></p>
           <section id="tools-section" class="add-section" aria-label="List tools" hidden>
             <form id="add-item-form" class="item-form" hidden>
@@ -150,7 +157,7 @@
                 <label for="status-filter">Status</label>
                 <select id="status-filter">
                   <option value="all">All</option>
-                  <option value="incomplete">Not completed</option>
+                  <option value="incomplete" selected>Not completed</option>
                   <option value="complete">Completed</option>
                 </select>
               </div>
@@ -169,6 +176,42 @@
         </div>
       </section>
     </main>
+    <dialog id="memory-dialog" class="memory-dialog" aria-labelledby="memory-dialog-title">
+      <form id="memory-form" class="memory-form">
+        <div class="memory-dialog-header">
+          <h2 id="memory-dialog-title">Completion details</h2>
+          <button id="cancel-memory" class="icon-button icon-button--quiet icon-button--small" type="button" aria-label="Close" title="Close">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
+        </div>
+        <p id="memory-item-title" class="memory-item-title"></p>
+        <div class="form-field">
+          <label for="completion-date">Completion date</label>
+          <input id="completion-date" name="completionDate" type="date" required>
+        </div>
+        <div class="form-field">
+          <label for="completion-note">Note</label>
+          <textarea id="completion-note" name="completionNote" rows="3" maxlength="500" placeholder="A few words about it"></textarea>
+        </div>
+        <div class="form-field">
+          <label for="memory-photo">Memory photo</label>
+          <input id="memory-photo" name="photo" type="file" accept="image/*">
+          <p class="field-note">JPEG, PNG, or WebP. Photos are resized before upload.</p>
+        </div>
+        <div id="memory-preview-wrap" class="memory-preview-wrap" hidden>
+          <img id="memory-preview" class="memory-preview" alt="Selected memory photo preview">
+          <button id="remove-memory-photo" class="icon-button icon-button--danger icon-button--small" type="button" aria-label="Remove photo" title="Remove photo">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>
+          </button>
+        </div>
+        <p id="memory-error" class="gate-error" role="alert" hidden></p>
+        <div class="memory-actions">
+          <button id="save-memory" class="icon-button icon-button--confirm" type="submit" aria-label="Save completion details" title="Save">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>
+          </button>
+        </div>
+      </form>
+    </dialog>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script type="module" src="./js/app.js"></script>
   </body>

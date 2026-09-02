@@ -12,6 +12,8 @@ import {
   loginWithPassword,
   logout,
   onAuthStateChange,
+  removeMemoryPhoto,
+  uploadMemoryPhoto,
   updateCategory,
   updateTagOption,
   updateBucketListItem,
@@ -45,6 +47,9 @@ const addCategorySelect = document.querySelector("#add-category");
 const addLocationSelect = document.querySelector("#add-location");
 const addWeatherSelect = document.querySelector("#add-weather");
 const manageCategoriesButton = document.querySelector("#manage-categories");
+const pickRandomButton = document.querySelector("#pick-random");
+const refreshDataButton = document.querySelector("#refresh-data");
+const randomResult = document.querySelector("#random-result");
 const categoryPanel = document.querySelector("#category-panel");
 const addCategoryForm = document.querySelector("#add-category-form");
 const categoryList = document.querySelector("#category-list");
@@ -62,12 +67,28 @@ const weatherFilter = document.querySelector("#weather-filter");
 const list = document.querySelector("#bucket-list-items");
 const listMessage = document.querySelector("#list-message");
 const itemCount = document.querySelector("#item-count");
+const memoryDialog = document.querySelector("#memory-dialog");
+const memoryForm = document.querySelector("#memory-form");
+const memoryItemTitle = document.querySelector("#memory-item-title");
+const completionDateInput = document.querySelector("#completion-date");
+const completionNoteInput = document.querySelector("#completion-note");
+const memoryPhotoInput = document.querySelector("#memory-photo");
+const memoryPreviewWrap = document.querySelector("#memory-preview-wrap");
+const memoryPreview = document.querySelector("#memory-preview");
+const removeMemoryPhotoButton = document.querySelector("#remove-memory-photo");
+const cancelMemoryButton = document.querySelector("#cancel-memory");
+const memoryError = document.querySelector("#memory-error");
 
 let loadedForUserId = null;
 let allItems = [];
 let categories = [];
 let locations = [];
 let weatherTags = [];
+let activeMemoryItem = null;
+let pendingCompletionCheckbox = null;
+let selectedMemoryPhoto = null;
+let removeExistingMemoryPhoto = false;
+let memoryPreviewObjectUrl = null;
 
 function updateConnectionStatus() {
   connectionStatus.hidden = navigator.onLine;
@@ -81,6 +102,7 @@ const ICON_PATHS = {
   check: ["m5 12 4 4L19 6"],
   close: ["M6 6l12 12", "M18 6 6 18"],
   edit: ["M12 20h9", "M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"],
+  camera: ["M4 8h3l2-3h6l2 3h3v11H4Z", "M12 11a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"],
   plus: ["M12 5v14", "M5 12h14"],
   trash: ["M4 7h16", "M9 7V4h6v3", "M7 7l1 13h8l1-13", "M10 11v5", "M14 11v5"],
 };
@@ -156,6 +178,84 @@ function createFormField(labelText, control, wide = false) {
   label.textContent = labelText;
   wrapper.append(label, control);
   return wrapper;
+}
+
+function getLocalDateValue(timestamp) {
+  const date = new Date(timestamp || Date.now());
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatCompletionDate(timestamp) {
+  return new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(new Date(timestamp));
+}
+
+function clearMemoryPreviewObjectUrl() {
+  if (memoryPreviewObjectUrl) URL.revokeObjectURL(memoryPreviewObjectUrl);
+  memoryPreviewObjectUrl = null;
+}
+
+function showMemoryPreview(url) {
+  memoryPreview.src = url;
+  memoryPreviewWrap.hidden = false;
+}
+
+function openMemoryDialog(item, checkbox = null) {
+  activeMemoryItem = item;
+  pendingCompletionCheckbox = checkbox;
+  selectedMemoryPhoto = null;
+  removeExistingMemoryPhoto = false;
+  clearMemoryPreviewObjectUrl();
+  memoryForm.reset();
+  memoryError.hidden = true;
+  memoryError.textContent = "";
+  memoryItemTitle.textContent = item.title;
+  completionDateInput.value = getLocalDateValue(item.completed_at);
+  completionNoteInput.value = item.completion_note ?? "";
+  memoryPreviewWrap.hidden = true;
+  memoryPreview.removeAttribute("src");
+  if (item.memory_photo_url) showMemoryPreview(item.memory_photo_url);
+  memoryDialog.showModal();
+}
+
+function closeMemoryDialog(saved = false) {
+  if (!saved && pendingCompletionCheckbox) pendingCompletionCheckbox.checked = false;
+  clearMemoryPreviewObjectUrl();
+  activeMemoryItem = null;
+  pendingCompletionCheckbox = null;
+  selectedMemoryPhoto = null;
+  removeExistingMemoryPhoto = false;
+  memoryDialog.close();
+}
+
+async function resizeMemoryPhoto(file) {
+  if (!file.type.startsWith("image/")) throw new Error("Choose an image file.");
+  if (file.size > 10 * 1024 * 1024) throw new Error("Choose a photo smaller than 10 MB.");
+
+  let image;
+  try {
+    image = await createImageBitmap(file, { imageOrientation: "from-image" });
+  } catch {
+    throw new Error("That photo format isn’t supported. Try JPEG, PNG, or WebP.");
+  }
+
+  const maxDimension = 1800;
+  const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(image.width * scale));
+  canvas.height = Math.max(1, Math.round(image.height * scale));
+  canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+  image.close();
+
+  const resized = await new Promise((resolve) => canvas.toBlob(resolve, "image/webp", 0.82));
+  if (!resized) throw new Error("We couldn’t prepare that photo.");
+  return resized;
 }
 
 function populateCategorySelect(select, selectedId = "") {
@@ -302,10 +402,12 @@ function createItemElement(item) {
   const title = document.createElement("h3");
   const statusText = document.createElement("span");
   const actions = document.createElement("div");
+  const memoryButton = document.createElement("button");
   const editButton = document.createElement("button");
   const deleteButton = document.createElement("button");
 
   listItem.className = "bucket-list-item";
+  listItem.dataset.itemId = item.id;
   listItem.classList.toggle("is-complete", item.completed);
   display.className = "item-display";
   checkbox.className = "item-checkbox";
@@ -346,11 +448,47 @@ function createItemElement(item) {
     content.append(weather);
   }
 
+  if (item.completed_at) {
+    const date = document.createElement("p");
+    date.className = "completion-date";
+    date.textContent = `Completed ${formatCompletionDate(item.completed_at)}`;
+    content.append(date);
+  }
+
+  if (item.memory_photo_url) {
+    const memoryBlock = document.createElement("div");
+    const photoLink = document.createElement("a");
+    const photo = document.createElement("img");
+    memoryBlock.className = "memory-block";
+    photoLink.className = "memory-photo-button";
+    photoLink.href = item.memory_photo_url;
+    photoLink.target = "_blank";
+    photoLink.rel = "noopener";
+    photoLink.setAttribute("aria-label", `Open memory photo for ${item.title}`);
+    photo.className = "memory-photo";
+    photo.src = item.memory_photo_url;
+    photo.alt = `Memory from ${item.title}`;
+    photo.loading = "lazy";
+    photoLink.append(photo);
+    memoryBlock.append(photoLink);
+    content.append(memoryBlock);
+  }
+
+  if (item.completion_note) {
+    const note = document.createElement("p");
+    note.className = "completion-note";
+    note.textContent = item.completion_note;
+    content.append(note);
+  }
+
   actions.className = "item-actions";
+  memoryButton.type = "button";
   editButton.type = "button";
   deleteButton.type = "button";
+  configureIconButton(memoryButton, "camera", "Edit completion details", "icon-button icon-button--quiet icon-button--small");
   configureIconButton(editButton, "edit", "Edit item", "icon-button icon-button--quiet icon-button--small");
   configureIconButton(deleteButton, "trash", "Delete item", "icon-button icon-button--danger icon-button--small");
+  if (item.completed) actions.append(memoryButton);
   actions.append(editButton, deleteButton);
   content.append(actions);
   display.append(checkbox, content);
@@ -362,14 +500,21 @@ function createItemElement(item) {
     editForm.elements.title.focus();
   });
 
+  memoryButton.addEventListener("click", () => openMemoryDialog(item));
+
   checkbox.addEventListener("change", async () => {
     clearAppError();
-    checkbox.disabled = true;
     const completed = checkbox.checked;
+    if (completed) {
+      openMemoryDialog(item, checkbox);
+      return;
+    }
+
+    checkbox.disabled = true;
     try {
       await updateBucketListItem(item.id, {
-        completed,
-        completed_at: completed ? new Date().toISOString() : null,
+        completed: false,
+        completed_at: null,
       });
       await loadBucketList();
     } catch (error) {
@@ -391,6 +536,13 @@ function createItemElement(item) {
     deleteButton.setAttribute("aria-busy", "true");
     try {
       await deleteBucketListItem(item.id);
+      if (item.memory_photo_path) {
+        try {
+          await removeMemoryPhoto(item.memory_photo_path);
+        } catch (photoError) {
+          console.error("Unable to remove the item’s memory photo:", photoError);
+        }
+      }
       await loadBucketList();
     } catch (error) {
       console.error("Unable to delete bucket-list item:", error);
@@ -421,14 +573,14 @@ function renderItems(items) {
   listMessage.hidden = true;
 }
 
-function renderFilteredItems() {
+function getFilteredItems() {
   const query = itemSearch.value.trim().toLowerCase();
   const status = statusFilter.value;
   const categoryId = categoryFilter.value;
   const locationId = locationFilter.value;
   const weatherId = weatherFilter.value;
   toggleFiltersButton.classList.toggle("is-active", status !== "all" || Boolean(categoryId || locationId || weatherId));
-  const filteredItems = allItems.filter((item) => {
+  return allItems.filter((item) => {
     const matchesQuery = !query ||
       item.title.toLowerCase().includes(query) ||
       (item.category?.name ?? "").toLowerCase().includes(query) ||
@@ -442,8 +594,133 @@ function renderFilteredItems() {
     const matchesWeather = !weatherId || item.weather_id === weatherId;
     return matchesQuery && matchesStatus && matchesCategory && matchesLocation && matchesWeather;
   });
-  renderItems(filteredItems);
 }
+
+function renderFilteredItems() {
+  renderItems(getFilteredItems());
+}
+
+memoryPhotoInput.addEventListener("change", () => {
+  memoryError.hidden = true;
+  const [file] = memoryPhotoInput.files;
+  if (!file) return;
+  if (!file.type.startsWith("image/") || file.size > 10 * 1024 * 1024) {
+    memoryPhotoInput.value = "";
+    showError(memoryError, file.size > 10 * 1024 * 1024
+      ? "Choose a photo smaller than 10 MB."
+      : "Choose an image file.");
+    return;
+  }
+
+  selectedMemoryPhoto = file;
+  removeExistingMemoryPhoto = false;
+  clearMemoryPreviewObjectUrl();
+  memoryPreviewObjectUrl = URL.createObjectURL(file);
+  showMemoryPreview(memoryPreviewObjectUrl);
+});
+
+removeMemoryPhotoButton.addEventListener("click", () => {
+  selectedMemoryPhoto = null;
+  removeExistingMemoryPhoto = Boolean(activeMemoryItem?.memory_photo_path);
+  memoryPhotoInput.value = "";
+  clearMemoryPreviewObjectUrl();
+  memoryPreview.removeAttribute("src");
+  memoryPreviewWrap.hidden = true;
+});
+
+cancelMemoryButton.addEventListener("click", () => closeMemoryDialog(false));
+memoryDialog.addEventListener("cancel", (event) => {
+  event.preventDefault();
+  closeMemoryDialog(false);
+});
+
+memoryForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!activeMemoryItem) return;
+  if (!navigator.onLine) {
+    showError(memoryError, "Saving a memory requires an internet connection.");
+    return;
+  }
+
+  const item = activeMemoryItem;
+  const oldPhotoPath = item.memory_photo_path;
+  let uploadedPhotoPath = null;
+  setFormBusy(memoryForm, true);
+  memoryError.hidden = true;
+
+  try {
+    if (selectedMemoryPhoto) {
+      const resizedPhoto = await resizeMemoryPhoto(selectedMemoryPhoto);
+      uploadedPhotoPath = await uploadMemoryPhoto(item.id, resizedPhoto);
+    }
+
+    const nextPhotoPath = uploadedPhotoPath ?? (removeExistingMemoryPhoto ? null : oldPhotoPath);
+    const completedAt = new Date(`${completionDateInput.value}T12:00:00`).toISOString();
+    await updateBucketListItem(item.id, {
+      completed: true,
+      completed_at: completedAt,
+      completion_note: completionNoteInput.value.trim() || null,
+      memory_photo_path: nextPhotoPath,
+    });
+
+    if (oldPhotoPath && oldPhotoPath !== nextPhotoPath) {
+      try {
+        await removeMemoryPhoto(oldPhotoPath);
+      } catch (photoError) {
+        console.error("Unable to remove the previous memory photo:", photoError);
+      }
+    }
+
+    setFormBusy(memoryForm, false);
+    closeMemoryDialog(true);
+    await loadBucketList();
+  } catch (error) {
+    console.error("Unable to save completion details:", error);
+    if (uploadedPhotoPath) {
+      try {
+        await removeMemoryPhoto(uploadedPhotoPath);
+      } catch (cleanupError) {
+        console.error("Unable to clean up the uploaded photo:", cleanupError);
+      }
+    }
+    showError(memoryError, error.message || "We couldn’t save those completion details.");
+    setFormBusy(memoryForm, false);
+  }
+});
+
+pickRandomButton.addEventListener("click", () => {
+  const filteredItems = getFilteredItems();
+  if (filteredItems.length === 0) {
+    randomResult.textContent = "There are no matching items to choose from.";
+    return;
+  }
+
+  const selected = filteredItems[Math.floor(Math.random() * filteredItems.length)];
+  const selectedElement = list.querySelector(`[data-item-id="${CSS.escape(selected.id)}"]`);
+  if (!selectedElement) return;
+
+  list.querySelectorAll(".is-random-pick").forEach((item) => item.classList.remove("is-random-pick"));
+  void selectedElement.offsetWidth;
+  selectedElement.classList.add("is-random-pick");
+  selectedElement.scrollIntoView({ behavior: "smooth", block: "center" });
+  randomResult.textContent = `Random pick: ${selected.title}`;
+});
+
+refreshDataButton.addEventListener("click", async () => {
+  clearAppError();
+  refreshDataButton.disabled = true;
+  refreshDataButton.setAttribute("aria-busy", "true");
+  try {
+    await loadCategories();
+    await loadBucketList();
+  } catch (error) {
+    console.error("Unable to refresh the bucket list:", error);
+    showActionError("refresh the bucket list");
+  } finally {
+    refreshDataButton.disabled = false;
+    refreshDataButton.removeAttribute("aria-busy");
+  }
+});
 
 async function loadBucketList() {
   showListMessage("Loading our bucket list…", "loading");
@@ -572,6 +849,7 @@ async function applySession(session) {
   sessionLoading.hidden = true;
 
   if (!user) {
+    if (memoryDialog.open) closeMemoryDialog(false);
     loadedForUserId = null;
     bucketApp.hidden = true;
     accessGate.hidden = false;
@@ -582,7 +860,7 @@ async function applySession(session) {
     manageCategoriesButton.classList.remove("is-active");
     manageCategoriesButton.setAttribute("aria-expanded", "false");
     itemSearch.value = "";
-    statusFilter.value = "all";
+    statusFilter.value = "incomplete";
     categoryFilter.value = "";
     locationFilter.value = "";
     weatherFilter.value = "";

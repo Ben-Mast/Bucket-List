@@ -29,14 +29,42 @@ export function onAuthStateChange(callback) {
 export async function fetchBucketListItems() {
   const { data, error } = await supabaseClient
     .from("bucket_items")
-    .select("id, title, description, category_id, location_id, weather_id, completed, created_at, completed_at, category:categories(id, name), location:locations(id, name), weather:weather_tags(id, name)")
+    .select("id, title, description, category_id, location_id, weather_id, completed, created_at, completed_at, completion_note, memory_photo_path, category:categories(id, name), location:locations(id, name), weather:weather_tags(id, name)")
     .order("created_at", { ascending: true });
 
   if (error) {
     throw error;
   }
 
-  return data ?? [];
+  const items = data ?? [];
+  const photoPaths = items.map((item) => item.memory_photo_path).filter(Boolean);
+  if (photoPaths.length === 0) return items;
+
+  const { data: signedPhotos, error: photoError } = await supabaseClient.storage
+    .from("bucket-memories")
+    .createSignedUrls(photoPaths, 3600);
+  if (photoError) throw photoError;
+
+  const photoUrls = new Map(signedPhotos.map((photo) => [photo.path, photo.signedUrl]));
+  return items.map((item) => ({
+    ...item,
+    memory_photo_url: photoUrls.get(item.memory_photo_path) ?? null,
+  }));
+}
+
+export async function uploadMemoryPhoto(itemId, file) {
+  const path = `${itemId}/${crypto.randomUUID()}.webp`;
+  const { error } = await supabaseClient.storage
+    .from("bucket-memories")
+    .upload(path, file, { contentType: "image/webp", cacheControl: "3600", upsert: false });
+  if (error) throw error;
+  return path;
+}
+
+export async function removeMemoryPhoto(path) {
+  if (!path) return;
+  const { error } = await supabaseClient.storage.from("bucket-memories").remove([path]);
+  if (error) throw error;
 }
 
 export async function createBucketListItem(item) {
