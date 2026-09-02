@@ -22,10 +22,20 @@ import {
 const SHARED_ACCOUNT_EMAIL = "benjaminmst@gmail.com";
 
 if ("serviceWorker" in navigator) {
+  let reloadingForServiceWorkerUpdate = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloadingForServiceWorkerUpdate) return;
+    reloadingForServiceWorkerUpdate = true;
+    window.location.reload();
+  });
+
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js").catch((error) => {
-      console.error("Unable to register the service worker:", error);
-    });
+    navigator.serviceWorker
+      .register("./sw.js")
+      .then((registration) => registration.update())
+      .catch((error) => {
+        console.error("Unable to register the service worker:", error);
+      });
   });
 }
 
