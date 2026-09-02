@@ -19,7 +19,16 @@ import {
 
 const SHARED_ACCOUNT_EMAIL = "benjaminmst@gmail.com";
 
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch((error) => {
+      console.error("Unable to register the service worker:", error);
+    });
+  });
+}
+
 const sessionLoading = document.querySelector("#session-loading");
+const connectionStatus = document.querySelector("#connection-status");
 const accessGate = document.querySelector("#access-gate");
 const bucketApp = document.querySelector("#bucket-app");
 const loginForm = document.querySelector("#login-form");
@@ -59,6 +68,14 @@ let allItems = [];
 let categories = [];
 let locations = [];
 let weatherTags = [];
+
+function updateConnectionStatus() {
+  connectionStatus.hidden = navigator.onLine;
+}
+
+window.addEventListener("online", updateConnectionStatus);
+window.addEventListener("offline", updateConnectionStatus);
+updateConnectionStatus();
 
 const ICON_PATHS = {
   check: ["m5 12 4 4L19 6"],
